@@ -8,7 +8,7 @@ int __attribute__((hot, flatten)) strcmp(const char *X, const char *Y)
 
 }
 
-unsigned int inline find_end(char const* arr, int length)
+unsigned int inline find_start(char const* arr, int length)
 {
     unsigned int index = 1;
 
@@ -25,7 +25,7 @@ void quicksort(char const* arr, unsigned int length)
     if(length <= 1)
         return;
 
-    startofend = find_end(arr, length);
+    startofend = find_start(arr, length);
 
     do {
 
@@ -39,4 +39,8 @@ void quicksort(char const* arr, unsigned int length)
 
         i++;
     }while(i < length);
+
+    swap(arr + piv, arr + length - 1);
+    quicksort(arr, piv++);
+    quicksort(arr + piv, length - piv);
 }

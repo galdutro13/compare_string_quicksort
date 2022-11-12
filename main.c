@@ -5,67 +5,82 @@
 
 #define ASCSUB -48
 #define MEMORY_CAPACITY 1048576
-#define ASCSUB -48
-#define MEMORY_CAPACITY 1048576
-typedef struct free_block {
-    int size;
-    struct free_block* next;
-} free_block;
 
-static free_block free_block_list_head = { 0, 0 };
 
-// static const size_t overhead = sizeof(size_t);
+int size_posb = 0;
+int size_atob = 0;
+unsigned int total_length = 0;
+char *string = "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n\000";
 
-static const int align_to = 16;
-void __attribute__ ((optimize("toplevel-reorder")))*mov_sbrk(int increment)
-{
-    static char global_mem[MEMORY_CAPACITY] = {0};
-    static char *p_break = global_mem;
 
-    char *const limit = global_mem + MEMORY_CAPACITY;
-    char *const original = p_break;
+unsigned int find_end(char* arr){
+    unsigned int index = 0;
 
-    if (increment < global_mem - p_break  ||  increment >= limit - p_break)
+    while (*arr != '\n')
     {
-        return (void*)-1;
+        arr++;
+        index++;
     }
-    p_break += increment;
-
-    return original;
-}
-void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int size) {
-    size = (size + sizeof(free_block) + (align_to - 1)) & ~ (align_to - 1);
-    free_block* block = free_block_list_head.next;
-    free_block** head = &(free_block_list_head.next);
-    while (block != 0) {
-        if (block->size >= size) {
-            *head = block->next;
-            return ((char*)block) + sizeof(free_block);
-        }
-        head = &(block->next);
-        block = block->next;
-    }
-
-    block = (free_block*)mov_sbrk(size);
-    block->size = size;
-
-    return ((char*)block) + sizeof(free_block);
+    return index+1;
 }
 
-void inline fmag(int value, int mag, int* mem)
+unsigned int find_start(char* arr, int length)
+{
+    unsigned int index = 1;
+
+    while(index <= length && arr[length - index] != '\n')
+        index++;
+
+    return index-1;
+}
+
+unsigned int findsize(char* array)
+{   char* tmp = array;
+    int count = 0;
+
+    while (*tmp)
+    {
+        tmp++;
+        count++;
+    }
+
+    return count;
+}
+char* create_tmp(char* base, unsigned int size)
+{
+    unsigned int length_t;
+    unsigned int index = 0;
+    if(size == 0)
+        length_t = findsize(base);
+    else
+        length_t = size;
+
+    char tmpstr[length_t];
+
+
+    while (index < length_t){
+        tmpstr[index] = base[index];
+        index++;
+    }
+
+    return tmpstr;
+
+}
+
+void  fmag(int value, int mag, int* mem)
 {
     value = value + ASCSUB;
     value = value * mag;
     *mem = *mem + value;
 
 }
-void inline fmag_simple(int value, int* mem)
+void  fmag_simple(int value, int* mem)
 {
     value = value + ASCSUB;
     *mem = *mem + value;
 }
 
-int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
+int __attribute__ ((hot, flatten)) lstrcmp(char *X, char *Y)
 {
 
     const char *Xi = X, *Yi = Y;
@@ -100,13 +115,13 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
         return (memx - memy);
 
     Xi++;
-    while (*Xi){
+    while (*Xi && *Xi != ' '){
         fmag_simple(*Xi, &memx);
         Xi++;
     }
 
     Yi++;
-    while (*Yi){
+    while (*Yi && *Yi != ' '){
         fmag_simple(*Yi, &memy);
         Yi++;
     }
@@ -115,120 +130,53 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
     return (memx - memy);
 }
 
-void swap(char **a, char **b) {
-    const char *temp = *a;
-    *a = *b;
-    *b = temp;
+void swap(char *a, char *b) {
+    char* tempa = a;
+    char* tempb = b;
+    unsigned int atob_size = (unsigned int) (b - a);
+
+    unsigned int sizea = find_end(a);
+    unsigned int sizeb = find_end(b);
+
+    char* iso_a = create_tmp(a, sizea);
+    char* iso_b = create_tmp(b, sizeb);
+    char* iso_atob = create_tmp(a+sizea, atob_size);
+
+    while(*a != '\n' && *b != '\n') {
+        *a = *b;
+        *b = tempa;
+        a++;
+        b++;
+    }
 }
 
-void quicksort(char const ** arr, unsigned int length) {
-    unsigned int i, piv = 0;
-    if (length <= 1)
+
+void quicksort(char* arr, unsigned int length)
+{
+    unsigned int i = 0;
+    unsigned int piv = 0;
+    unsigned int startofend = 0;
+    if(length <= 1)
         return;
 
-    for (i = 0; i < length; i++) {
+    startofend = find_start(arr, length);
 
-        if (strcmp(arr[i], arr[length -1]) < 0) 	//use string in last index as pivot
+    do {
+
+        if(arr[i] == '\n')
+        {
+            i++;
+            continue;
+        }
+        if(lstrcmp(&arr[i], &arr[length - startofend]) < 0)
             swap(arr + i, arr + piv++);
-    }
-    //move pivot to "middle"
+
+        i++;
+    }while(i < length);
+
     swap(arr + piv, arr + length - 1);
-
-    //recursively sort upper and lower
-    quicksort(arr, piv++);			//set length to current pvt and increase for next call
+    quicksort(arr, piv++);
     quicksort(arr + piv, length - piv);
-}
-
-int findsize(char* array)
-{   char* tmp = array;
-    int count = 0;
-
-    while (*tmp)
-    {
-        if (*tmp == '\n')
-        {
-            count++;
-
-        }
-
-        tmp++;
-    }
-
-    return count;
-}
-char** str_split(char* a_str)
-{
-    char** result;
-    int count     = 0;
-    int strsize   = 0;
-    char* tmp        = a_str;
-    __attribute__((unused)) char* last_comma;
-    char delim[2];
-    delim[0] = '\n';
-    delim[1] = 0;
-
-    /* Count how many elements will be extracted. */
-    while (*tmp)
-    {
-        if (*tmp == '\n')
-        {
-            count++;
-        }
-        strsize++;
-        tmp++;
-    }
-
-    /* Add space for trailing token. */
-    //count += last_comma < (a_str + strlen(a_str) - 1);
-
-    /* Add space for terminating null string so caller
-       knows where the list of returned strings ends. */
-    count++;
-
-    result = malloc(sizeof(char*) * count);
-
-    if (result)
-    {
-        __attribute__((unused)) int idx;
-        int tokensize = 0;
-        __attribute__((unused)) char currvalue = 0;
-        char* newString;
-        char* tmpPointer = a_str;
-        //char* token = strtok(a_str, '\n');
-
-        for(int i = 0; i < count; i++)
-        {
-            while (*tmpPointer)
-            {
-                if(*tmpPointer == '\n')
-                {
-                    tmpPointer++;
-                    break;
-                }
-                tokensize++;
-                tmpPointer++;
-            }
-
-            newString = malloc(sizeof(char) * tokensize);
-            result[i] = newString;
-            while (*a_str)
-            {
-                if(*a_str == '\n')
-                {
-                    a_str++;
-                    break;
-                }
-
-                *newString = *a_str;
-                a_str++;
-                newString++;
-            }
-
-        }
-
-    }
-
-    return result;
 }
 
 int main(int argc, char** argv) {
@@ -237,19 +185,25 @@ int main(int argc, char** argv) {
 //    quicksort(arr, limit);
 
 
-	int i;
+    int i;
+    //char** arr_string = str_split(string);
 
+    unsigned int limit = findsize(string);
+    total_length = limit;
 
-    char *string = "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n\000";
-    char** arr_string = str_split(string);
+    //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string),sizeof(*arr_string));
 
-    int limit = findsize(string);
-
-    printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string),sizeof(*arr_string));
-
-    quicksort(arr_string, limit);
+    /*quicksort(string, limit);
     for (i=0; i < limit; i++) {
-        printf("%s ",arr_string[i]);
+        printf("%c ",string[i]);
         //puts(arr[i]);
-    }
+    }*/
+
+
+    char* newtemporary = "1496.74 \n";
+
+    int vq = find_end(newtemporary);
+    char* newvq = create_tmp(newtemporary, vq);
+
+    printf("%d", vq);
 }
