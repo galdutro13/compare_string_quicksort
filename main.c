@@ -2,11 +2,9 @@
 #include <unistd.h>
 #include <stdio.h>
 
+#define ASCSUB -48
+#define MEMORY_CAPACITY 1048576
 
-#define ASCSUB -48
-#define MEMORY_CAPACITY 1048576
-#define ASCSUB -48
-#define MEMORY_CAPACITY 1048576
 typedef struct free_block {
     int size;
     struct free_block* next;
@@ -14,7 +12,6 @@ typedef struct free_block {
 
 static free_block free_block_list_head = { 0, 0 };
 
-// static const size_t overhead = sizeof(size_t);
 
 static const int align_to = 16;
 void __attribute__ ((optimize("toplevel-reorder")))*mov_sbrk(int increment)
@@ -233,13 +230,6 @@ char** str_split(char* a_str)
 }
 
 int main(int argc, char** argv) {
-//	char const *arr[] = {"8.3", "1.7", "3.1", "3.7","3.9","32.17", "3029.81", "18.0", "13.0"};
-//    int limit = sizeof(arr) / sizeof(*arr);
-//    quicksort(arr, limit);
-
-
-//	int i;
-
 
     char *string = "8.3 \n1.7 \n3.1 \n3.7 \n5.4 \n3084.72 \n12.1 \n\000";
     char** arr_string = str_split(string);
