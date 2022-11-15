@@ -1,21 +1,31 @@
 .data
-	entrada:	.ascii "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n"
-			.align 2
 	free_block_list_head:
 		.space 8
 		.align 2
-	
+	align_to:
+		.word 16
+		.align 2
+	entrada:
+		.asciiz "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n15.4\n"
+		.align 4
+		.globl main
 	p_break.0:
 		.word global_mem.1
-		.align 2
+		.align 0
 
 	global_mem.1:
 		.space 1048576
-		.align 2
+		.align 0
 		
 	head_orderedstring:
 		.word
-		.align 2
+		.align 0
+	nentrada:
+		.asciiz "entrada.txt"
+		.align 0
+	buffentrada:
+		.space 1024
+		.align 0
 .text
 	main:
 	  la $a0, entrada
@@ -83,7 +93,6 @@
 	  
 	  la $t9, printer
 	  jr $t9
-	    
 	strcmp:
 	  move $v0,$a0
 	  li $v1,1 # 0x1
