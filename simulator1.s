@@ -6,7 +6,7 @@
 		.word 16
 		.align 2
 	buffentrada:
-		.space 1024
+		.space 262144
 		.align 4
 		.globl main
 	p_break.0:
@@ -22,6 +22,9 @@
 		.align 0
 	nentrada:
 		.asciiz "entrada.txt"
+		.align 0
+	nensaida:
+		.asciiz "saida.txt"
 		.align 0
 .text
 	main:
@@ -67,9 +70,28 @@
 	  addiu $sp,$sp,32
 	  lw $s0, head_orderedstring
 	  addi $s2, $zero, 0
+	  
 	  jal printer
+	  
+	  
+	  li $v0, 13
+	  la $a0, nensaida
+	  li $a1, 1
+	  li $a2, 0x1FF
+	  syscall
+	  move $s6, $v0
+	  
+	  lw $s0, head_orderedstring
+	  addi $s2, $zero, 0
+	  
+	  jal saida
+	  
+	  move $s5, $a0
 	  li $a0, 0
 	  li $v0, 10
+	  
+	  
+	  
 	  syscall
 	  # jr $ra
 	
@@ -105,6 +127,51 @@
 	  syscall
 	  
 	  la $t9, printer
+	  jr $t9
+	
+	saida_header:
+	  li $s0, 0
+	  jr $ra
+	saida:
+	  sll $v1, $s2, 2
+	  addu $v1, $v1, $s0
+	  lw $s1, 0($v1)
+
+	  move $s3, $zero
+	  
+	saida_inner:
+	  addu $t0, $s1, $s3
+	  lb $a1, 0($t0)
+	  li $a2, 1
+	  move $a0, $s6
+	  li $v0, 15
+	  
+	  syscall
+	  
+	  addiu $s3, $s3, 1
+	  bne $a0, $zero, saida_inner
+	  
+	  addiu $s2, $s2, 1
+	  
+	  sll $t1, $s2, 2
+	  addu $t1, $t1, $s0
+	  lw $t1, 0($t1)
+	  lw $t1, 0($t1)
+	  beq $t1, $zero, saida_header
+	  
+	  li $a2, 1
+	  move $a0, $s6
+	  li $a1, 32
+	  li $v0, 15
+	  syscall
+	  
+	  li $a2, 1
+	  move $a0, $s6
+	  li $a1, 10
+	  li $v0, 15
+	  syscall
+	  
+	  la $t9, saida
 	  jr $t9
 	
 	strcmp:
