@@ -25,7 +25,8 @@ void __attribute__ ((optimize("toplevel-reorder")))*mov_sbrk(int increment)
     char *const limit = global_mem + MEMORY_CAPACITY;
     char *const original = p_break;
 
-    if (increment < global_mem - p_break  ||  increment >= limit - p_break)
+    if (increment < global_mem - p_break  || //pbreak initially equals global_mem
+    increment >= limit - p_break) //limit - p_break equals MEMORY_CAPACITY
     {
         return (void*)-1;
     }
@@ -52,14 +53,14 @@ void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int
     return ((char*)block) + sizeof(free_block);
 }
 
-void inline fmag(int value, int mag, int* mem)
+void fmag(int value, int mag, int* mem)
 {
     value = value + ASCSUB;
     value = value * mag;
     *mem = *mem + value;
 
 }
-void inline fmag_simple(int value, int* mem)
+void fmag_simple(int value, int* mem)
 {
     value = value + ASCSUB;
     *mem = *mem + value;
@@ -237,10 +238,10 @@ int main(int argc, char** argv) {
 //    quicksort(arr, limit);
 
 
-	int i;
+//	int i;
 
 
-    char *string = "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n\000";
+    char *string = "8.3 \n1.7 \n3.1 \n3.7 \n5.4 \n3084.72 \n12.1 \n\000";
     char** arr_string = str_split(string);
 
     int limit = findsize(string);
@@ -248,8 +249,15 @@ int main(int argc, char** argv) {
     printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string),sizeof(*arr_string));
 
     quicksort(arr_string, limit);
-    for (i=0; i < limit; i++) {
-        printf("%s ",arr_string[i]);
-        //puts(arr[i]);
-    }
+    unsigned int i = 0;
+    do{
+        char* c = arr_string[i];
+        unsigned int j = 0;
+        do{
+            printf("%c", c[j]);
+            j++;
+        }while(c[j]);
+
+        i++;
+    }while(*arr_string[i]);
 }

@@ -76,6 +76,11 @@
 	  lw $t1, 0($t1)
 	  lw $t1, 0($t1)
 	  beq $t1, $zero, printer_header
+	  
+	  li $a0, 32
+	  li $v0, 11
+	  syscall
+	  
 	  la $t9, printer
 	  jr $t9
 	    
