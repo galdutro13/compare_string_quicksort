@@ -231,7 +231,7 @@ char** str_split(char* a_str)
 
 int main(int argc, char** argv) {
 
-    char *string = "8.3 \n1.7 \n3.1 \n3.7 \n5.4 \n3084.72 \n12.1 \n\000";
+    char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569\n";
     char** arr_string = str_split(string);
 
     int limit = findsize(string);

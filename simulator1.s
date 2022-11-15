@@ -5,8 +5,8 @@
 	align_to:
 		.word 16
 		.align 2
-	entrada:
-		.asciiz "8.3\n1.7\n3.1\n3.7\n5.4\n3084.72\n12.1\n15.4\n"
+	buffentrada:
+		.space 1024
 		.align 4
 		.globl main
 	p_break.0:
@@ -23,25 +23,38 @@
 	nentrada:
 		.asciiz "entrada.txt"
 		.align 0
-	buffentrada:
-		.space 1024
-		.align 0
 .text
 	main:
-	  la $a0, entrada
-	  li $v0, 4 
+	  li $v0, 13
+	  la $a0, nentrada
+	  li $a1, 0
 	  syscall
+	  move $t0, $v0
+	  li $v0, 14
+	  la $a1, buffentrada
+	  li $a2, 1024
+	  move $a0, $t0
+	  syscall
+	  li $v0, 16 
+	  move $a0, $t0
+	  syscall
+	  la $a0, buffentrada
+	  li $v0, 4
+	  syscall
+	  
 	  li $v0, 0
 	  li $a0, 0
+	  
+	  
 	  addiu $sp,$sp,-32
 	  sw $ra,28($sp)
 	  sw $s0,24($sp)
-	  la $a0,entrada
+	  la $a0,buffentrada
 	  jal str_split #la $t9,str_split
 	  #jr $t9
 	  move $s0,$v0
 	  sw $s0, head_orderedstring
-	  la $a0,entrada
+	  la $a0,buffentrada
 	  jal findsize
 	  
 	  move $a1,$v0
@@ -93,41 +106,44 @@
 	  
 	  la $t9, printer
 	  jr $t9
+	
 	strcmp:
 	  move $v0,$a0
-	  li $v1,1 # 0x1
-	$L2:
-	  addiu $v0,$v0,1
-	  sll $a2,$v1,2
-	  addu $v1,$a2,$v1
-	  sll $v1,$v1,1
-	  lb $a3,0($v0)
-	  li $a2,46 # 0x2e
-	  bne $a3,$a2,$L2
-	  move $a3,$a1
 	  li $a2,1 # 0x1
+	$L2:
+	  lw $t5, 0($v0)
+	 innerloopX: 
+	  sll $v1,$a2,2
+	  addu $a2,$v1,$a2
+	  sll $a2,$a2,1
+	  lb $a3,0($t5)
+	  li $v1,46 # 0x2e
+	  addiu $t5, $t5, 1
+	  bne $a3,$v1,innerloopX
+	  move $v0,$a1
+	  li $v1,1 # 0x1
 	$L3:
-	  addiu $a3,$a3,1
-	  sll $v0,$a2,2
-	  addu $v0,$v0,$a2
-	  sll $a2,$v0,1
-	  lb $t0,0($a3)
-	  li $v0,46 # 0x2e
-	  bne $t0,$v0,$L3
+	  lw $t5, 0($v0)
+	 innerloopY:
+	  sll $a3,$v1,2
+	  addu $v1,$a3,$v1
+	  sll $v1,$v1,1
+	  lb $t0,0($t5)
+	  li $a3,46 # 0x2e
+	  addiu $t5, $t5, 1
+	  bne $t0,$a3,innerloopY
 	  move $t0,$a0
 	  move $v0,$zero
+	  lw $t0, 0($t0)
 	  b $L4
 	$L5:
 	  addiu $a3,$a3,-48
-	  mul $t1,$v1,$a3
-	  addu $v0,$t1,$v0
-	  li $a3,1717960704 # 0x66660000
-	  addiu $a3,$a3,26215
-	  mult $v1,$a3
-	  mfhi $a3
-	  sra $a3,$a3,2
-	  sra $v1,$v1,31
-	  subu $v1,$a3,$v1
+	  mult $a2,$a3
+	  mflo $a3
+	  addu $v0,$v0,$a3
+	  li $a3,10 # 0xa
+	  div $zero,$a2,$a3
+	  mflo $a2
 	  addiu $t0,$t0,1
 	$L4:
 	  lb $a3,0($t0)
@@ -135,29 +151,27 @@
 	  bne $a3,$t1,$L5
 	  move $a3,$a1
 	  move $t1,$zero
+	  lw $a3, 0($a3)
 	  b $L6
 	$L7:
-	  addiu $v1,$v1,-48
-	  mul $t2,$a2,$v1
-	  addu $t1,$t2,$t1
-	  li $v1,1717960704 # 0x66660000
-	  addiu $v1,$v1,26215
-	  mult $a2,$v1
-	  mfhi $v1
-	  sra $v1,$v1,2
-	  sra $a2,$a2,31
-	  subu $a2,$v1,$a2
+	  addiu $a2,$a2,-48
+	  mult $v1,$a2
+	  mflo $a2
+	  addu $t1,$t1,$a2
+	  li $a2,10 # 0xa
+	  div $zero,$v1,$a2
+	  mflo $v1
 	  addiu $a3,$a3,1
 	$L6:
-	  lb $v1,0($a3)
+	  lb $a2,0($a3)
 	  li $t2,46 # 0x2e
-	  bne $v1,$t2,$L7
+	  bne $a2,$t2,$L7
 	  bne $v0,$t1,$L8
 	  addiu $t0,$t0,1
 	  bne $a0,$a1,$L11
 	$L8:
 	  subu $v0,$v0,$t1
-	  jr $ra 
+	  jr $ra
 	$L12:
 	  addiu $v1,$v1,-48
 	  addu $v0,$v0,$v1
