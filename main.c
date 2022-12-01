@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <omp.h>
+#include <time.h>
 
 #define ASCSUB -48
 #define MEMORY_CAPACITY 1048576
@@ -50,6 +51,14 @@ void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int
 
     return ((char*)block) + sizeof(free_block);
 }
+
+
+void free(void* ptr) {
+    free_block* block = (free_block*)(((char*)ptr) - sizeof(size_t));
+    block->next = free_block_list_head.next;
+    free_block_list_head.next = block;
+}
+
 
 void inline fmag(int value, int mag, int* mem)
 {
@@ -233,14 +242,31 @@ char** str_split(char* a_str)
 int main(int argc, char** argv) {
 
     char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569\n";
-    char** arr_string = str_split(string);
-
-    int limit = findsize(string);
-
-    printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string),sizeof(*arr_string));
-
-    quicksort(arr_string, limit);
+    unsigned short j = 0;
     unsigned int i = 0;
+    char **arr_string;
+
+    clock_t t_start = clock();
+
+
+    do {
+        arr_string = str_split(string);
+
+        int limit = findsize(string);
+
+        //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string), sizeof(*arr_string));
+
+        quicksort(arr_string, limit);
+        j++;
+        if(j != 1024)
+            free(arr_string);
+    }while(j < 1024);
+
+
+
+    clock_t t_ends = clock() - t_start;
+    long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
+
     do{
         char* c = arr_string[i];
         unsigned int j = 0;
@@ -251,4 +277,7 @@ int main(int argc, char** argv) {
 
         i++;
     }while(*arr_string[i]);
+
+
+    printf("The program took %Lf seconds to execute", time_taken);
 }
