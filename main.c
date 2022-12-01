@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define ASCSUB -48
-#define MEMORY_CAPACITY 1048576
+#define MEMORY_CAPACITY 8388608
 
 typedef struct free_block {
     int size;
@@ -37,6 +37,8 @@ void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int
     size = (size + sizeof(free_block) + (align_to - 1)) & ~ (align_to - 1);
     free_block* block = free_block_list_head.next;
     free_block** head = &(free_block_list_head.next);
+
+
     while (block != 0) {
         if (block->size >= size) {
             *head = block->next;
@@ -80,11 +82,13 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
     int memx = 0, memy = 0;
     int Xb = 1, Yb = 1;
 
+    #pragma omp ordered
     do{
         Xi++;
         Xb = Xb*10;
     }while (*Xi != '.');
 
+    #pragma omp ordered
     do{
         Yi++;
         Yb = Yb*10;
@@ -92,12 +96,14 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
 
     Xi = X, Yi = Y;
 // ---------------------------------------
+    #pragma omp ordered
     while (*Xi != '.'){
         fmag(*Xi, Xb, &memx);
         Xb = Xb/10;
         Xi++;
     }
 
+    #pragma omp ordered
     while (*Yi != '.'){
         fmag(*Yi, Yb, &memy);
         Yb = Yb/10;
@@ -108,32 +114,40 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
         return (memx - memy);
 
     Xi++;
-    while (*Xi){
-        fmag_simple(*Xi, &memx);
-        Xi++;
-    }
-
     Yi++;
-    while (*Yi){
-        fmag_simple(*Yi, &memy);
+
+
+    while (*Xi && *Yi){
+        if(*Xi > *Yi) {
+            fmag_simple(*Xi, &memx);
+            break;
+        }
+        else if(*Yi > *Xi) {
+            fmag_simple(*Yi, &memy);
+            break;
+        }
+        Xi++;
         Yi++;
     }
 
     // return the ASCII difference after converting `char*` to `unsigned char*`
-    return (memx - memy);
+    return  (memx - memy);
 }
 
 void inline swap(char **a, char **b) {
-    const char *temp = *a;
-    *a = *b;
-    *b = temp;
+    #pragma omp critical
+    {
+        const char *temp = *a;
+        *a = *b;
+        *b = temp;
+    }
 }
 
 void quicksort(char const ** arr, unsigned int length) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
-
+    #pragma omp parallel for num_threads(8)
     for (i = 0; i < length; i++) {
 
         if (strcmp(arr[i], arr[length -1]) < 0) 	//use string in last index as pivot
@@ -241,7 +255,7 @@ char** str_split(char* a_str)
 
 int main(int argc, char** argv) {
 
-    char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569\n";
+    char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569 \n33.24 \n12.5 \n15.75 \n33.29 \n3.28 \n12.178 \n";
     unsigned short j = 0;
     unsigned int i = 0;
     char **arr_string;
@@ -251,16 +265,15 @@ int main(int argc, char** argv) {
 
     do {
         arr_string = str_split(string);
-
         int limit = findsize(string);
 
         //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string), sizeof(*arr_string));
 
         quicksort(arr_string, limit);
         j++;
-        if(j != 1024)
+        if(j != 2048)
             free(arr_string);
-    }while(j < 1024);
+    }while(j < 2048);
 
 
 
