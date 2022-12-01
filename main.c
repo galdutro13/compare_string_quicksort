@@ -1,6 +1,7 @@
 /* Quick sort algorithm to sort strings */
 #include <unistd.h>
 #include <stdio.h>
+#include <omp.h>
 
 #define ASCSUB -48
 #define MEMORY_CAPACITY 1048576
@@ -50,14 +51,14 @@ void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int
     return ((char*)block) + sizeof(free_block);
 }
 
-void fmag(int value, int mag, int* mem)
+void inline fmag(int value, int mag, int* mem)
 {
     value = value + ASCSUB;
     value = value * mag;
     *mem = *mem + value;
 
 }
-void fmag_simple(int value, int* mem)
+void inline fmag_simple(int value, int* mem)
 {
     value = value + ASCSUB;
     *mem = *mem + value;
@@ -113,7 +114,7 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
     return (memx - memy);
 }
 
-void swap(char **a, char **b) {
+void inline swap(char **a, char **b) {
     const char *temp = *a;
     *a = *b;
     *b = temp;
