@@ -5,7 +5,7 @@
 #include <time.h>
 
 #define ASCSUB -48
-#define MEMORY_CAPACITY 8388608
+#define MEMORY_CAPACITY 10485760
 
 typedef struct free_block {
     int size;
@@ -55,26 +55,27 @@ void* __attribute__ ((flatten, malloc, optimize("toplevel-reorder"))) malloc(int
 }
 
 
-void free(void* ptr) {
+void lfree(void* ptr) {
     free_block* block = (free_block*)(((char*)ptr) - sizeof(size_t));
     block->next = free_block_list_head.next;
     free_block_list_head.next = block;
 }
 
 
-void inline fmag(int value, int mag, int* mem)
+void inline __attribute__((always_inline)) fmag(int value, int mag, int* mem)
 {
     value = value + ASCSUB;
     value = value * mag;
     *mem = *mem + value;
 
 }
-void inline fmag_simple(int value, int* mem)
+void inline __attribute__((always_inline)) fmag_simple(int value, int* mem)
 {
     value = value + ASCSUB;
     *mem = *mem + value;
 }
 
+//TODO: Identificar porque o código não ordena saídas simples (sem o valor decimal)
 int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
 {
 
@@ -82,13 +83,13 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
     int memx = 0, memy = 0;
     int Xb = 1, Yb = 1;
 
-    #pragma omp ordered
+    //#pragma omp parallel default(none) shared(Xi, Xb)
     do{
         Xi++;
         Xb = Xb*10;
-    }while (*Xi != '.');
+    }while(*Xi != '.');
 
-    #pragma omp ordered
+    //#pragma omp parallel default(none) shared(Yi, Yb)
     do{
         Yi++;
         Yb = Yb*10;
@@ -96,15 +97,15 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
 
     Xi = X, Yi = Y;
 // ---------------------------------------
-    #pragma omp ordered
-    while (*Xi != '.'){
+    //#pragma omp parallel default(none) shared(Xb, memx) private(Xi)
+    while(*Xi != '.'){
         fmag(*Xi, Xb, &memx);
         Xb = Xb/10;
         Xi++;
     }
 
-    #pragma omp ordered
-    while (*Yi != '.'){
+    //#pragma omp parallel for default(none) shared(Yb, memy) private(Yi)
+    while(*Yi != '.'){
         fmag(*Yi, Yb, &memy);
         Yb = Yb/10;
         Yi++;
@@ -134,7 +135,7 @@ int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
     return  (memx - memy);
 }
 
-void inline swap(char **a, char **b) {
+void inline __attribute__((always_inline)) swap(char **a, char **b) {
     #pragma omp critical
     {
         const char *temp = *a;
@@ -147,18 +148,24 @@ void quicksort(char const ** arr, unsigned int length) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
-    #pragma omp parallel for num_threads(8)
+
     for (i = 0; i < length; i++) {
 
-        if (strcmp(arr[i], arr[length -1]) < 0) 	//use string in last index as pivot
+        if (strcmp(arr[i], arr[length -1]) < 0)    //use string in last index as pivot
             swap(arr + i, arr + piv++);
     }
     //move pivot to "middle"
     swap(arr + piv, arr + length - 1);
 
     //recursively sort upper and lower
-    quicksort(arr, piv++);			//set length to current pvt and increase for next call
-    quicksort(arr + piv, length - piv);
+
+    quicksort(arr, piv++);            //set length to current pvt and increase for next call
+
+    #pragma omp task default(none) shared(length) firstprivate(arr, piv)
+    {
+        quicksort(arr + piv, length - piv);
+
+    }
 }
 
 int findsize(char* array)
@@ -190,6 +197,8 @@ char** str_split(char* a_str)
     delim[1] = 0;
 
     /* Count how many elements will be extracted. */
+
+    //#pragma omp parallel default(none) firstprivate(tmp, count, strsize)
     while (*tmp)
     {
         if (*tmp == '\n')
@@ -253,44 +262,102 @@ char** str_split(char* a_str)
     return result;
 }
 
+char* readfile(const char* filename){
+
+    char *string_of_numbers;
+    long size = 0;
+
+    FILE* entrada = fopen(filename, "r");
+
+    if(fseek(entrada, 0, SEEK_END) != 0)
+        exit(fprintf(stderr, "Erro ao fazer o seek do fim do arquivo.\n"));
+
+    size = ftell(entrada);
+
+    if(fseek(entrada, 0, SEEK_SET) != 0)
+        exit(fprintf(stderr, "Erro ao fazer o seek-set para a leitura do arquivo\n"));
+
+    string_of_numbers = malloc(size+1);
+
+
+    fread(string_of_numbers, size, 1, entrada);
+
+    fclose(entrada);
+
+    return string_of_numbers;
+
+}
+
 int main(int argc, char** argv) {
 
-    char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569 \n33.24 \n12.5 \n15.75 \n33.29 \n3.28 \n12.178 \n";
-    unsigned short j = 0;
-    unsigned int i = 0;
-    char **arr_string;
+    if(*argv[1] == '0') {
+        char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569 \n33.24 \n12.5 \n15.75 \n33.29 \n3.28 \n12.178 \n";
+        unsigned short j = 0;
+        unsigned int i = 0;
+        char **arr_string;
 
-    clock_t t_start = clock();
+        clock_t t_start = clock();
 
 
-    do {
+        do {
+
+            int limit = findsize(string);
+
+            //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string), sizeof(*arr_string));
+
+            quicksort(arr_string, limit);
+            j++;
+            if (j != 2048)
+                lfree(arr_string);
+        } while (j < 2048);
+
+
+        clock_t t_ends = clock() - t_start;
+        long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
+
+        do {
+            char *c = arr_string[i];
+            unsigned int j = 0;
+            do {
+                printf("%c", c[j]);
+                j++;
+            } while (c[j]);
+
+            i++;
+        } while (*arr_string[i]);
+
+
+        printf("\nThe program took %Lf seconds to execute", time_taken);
+
+    }else if(*argv[1] == '1'){
+        char* string = readfile("dados_100000.txt");
+        unsigned int i = 0;
+        char **arr_string;
+
+        clock_t t_start = clock();
+
         arr_string = str_split(string);
+
         int limit = findsize(string);
 
-        //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string), sizeof(*arr_string));
 
         quicksort(arr_string, limit);
-        j++;
-        if(j != 2048)
-            free(arr_string);
-    }while(j < 2048);
 
 
+        clock_t t_ends = clock() - t_start;
+        long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
 
-    clock_t t_ends = clock() - t_start;
-    long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
+        do {
+            char *c = arr_string[i];
+            unsigned int j = 0;
+            do {
+                printf("%c", c[j]);
+                j++;
+            } while (c[j]);
 
-    do{
-        char* c = arr_string[i];
-        unsigned int j = 0;
-        do{
-            printf("%c", c[j]);
-            j++;
-        }while(c[j]);
+            i++;
+        } while (*arr_string[i]);
 
-        i++;
-    }while(*arr_string[i]);
-
-
-    printf("The program took %Lf seconds to execute", time_taken);
+        printf("\nThe program took %Lf seconds to execute", time_taken);
+    }
 }
