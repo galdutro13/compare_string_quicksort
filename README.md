@@ -6,4 +6,4 @@ Porém se o código for executado no MARS, é possível ver no output a entrada 
 
 -------
 
-Devo agradecer ao projeto mips2c que me permitiu depurar melhor a aplicação, além do algoritmo de comparação de strings do 'techie delight' que usei como base para a minha implementação. Também devo agradecer ao 'I-Smith' que implementou um algoritmo de quicksort para ser usando em cima de strings. Por ultimo, gostaria de agradecer ao 'Sylvain Defresne' que apresentou uma bela implementação da função malloc no GitHub.
+Devo agradecer ao projeto mips2c que me permitiu depurar melhor a aplicação, além do algoritmo de comparação de strings do 'techie delight' que usei como base para a minha implementação. Também devo agradecer ao 'I-Smith' que implementou um algoritmo de quicksort para ser usando em cima de strings. Por ultimo, gostaria de agradecer ao 'Sylvain Defresne' que apresentou uma bela implementação da função lmalloc no GitHub.
