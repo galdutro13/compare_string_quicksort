@@ -15,90 +15,22 @@ void inline __attribute__((always_inline)) fmag(int value, int mag, int* mem)
     *mem = *mem + value;
 
 }
-void inline __attribute__((always_inline)) fmag_simple(int value, int* mem)
-{
-    value = value + ASCSUB;
-    *mem = *mem + value;
+
+void inline __attribute__((always_inline)) swap(float* a, float* b) {
+    float temp = *a;
+    *a = *b;
+    *b = temp;
 }
 
-//TODO: Identificar porque o código não ordena saídas simples (sem o valor decimal)
-int __attribute__ ((hot, flatten)) strcmp(const char *X, const char *Y)
-{
-
-    const char *Xi = X, *Yi = Y;
-    int memx = 0, memy = 0;
-    int Xb = 1, Yb = 1;
-
-    //#pragma omp parallel default(none) shared(Xi, Xb)
-    do{
-        Xi++;
-        Xb = Xb*10;
-    }while(*Xi != '.');
-
-    //#pragma omp parallel default(none) shared(Yi, Yb)
-    do{
-        Yi++;
-        Yb = Yb*10;
-    }while(*Yi != '.');
-
-    Xi = X, Yi = Y;
-// ---------------------------------------
-    //#pragma omp parallel default(none) shared(Xb, memx) private(Xi)
-    while(*Xi != '.'){
-        fmag(*Xi, Xb, &memx);
-        Xb = Xb/10;
-        Xi++;
-    }
-
-    //#pragma omp parallel for default(none) shared(Yb, memy) private(Yi)
-    while(*Yi != '.'){
-        fmag(*Yi, Yb, &memy);
-        Yb = Yb/10;
-        Yi++;
-    }
-
-    if((memx != memy) || (X == Y))
-        return (memx - memy);
-
-    Xi++;
-    Yi++;
-
-
-    while (*Xi && *Yi){
-        if(*Xi > *Yi) {
-            fmag_simple(*Xi, &memx);
-            break;
-        }
-        else if(*Yi > *Xi) {
-            fmag_simple(*Yi, &memy);
-            break;
-        }
-        Xi++;
-        Yi++;
-    }
-
-    // return the ASCII difference after converting `char*` to `unsigned char*`
-    return  (memx - memy);
-}
-
-void inline __attribute__((always_inline)) swap(char **a, char **b) {
-    #pragma omp critical
-    {
-        const char *temp = *a;
-        *a = *b;
-        *b = temp;
-    }
-}
-
-void quicksort(char** arr, unsigned int length) {
+void quicksort(float* arr, unsigned int length) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
 
-#pragma omp taskloop shared(piv) firstprivate(arr, length) default(none) num_tasks(8)
+//#pragma omp taskloop shared(piv) firstprivate(arr, length) default(none) num_tasks(8)
     for (i = 0; i < length; i++) {
 
-        if (strcmp(arr[i], arr[length -1]) < 0)    //use string in last index as pivot
+        if ( arr[i] < arr[length -1])    //use string in last index as pivot
             swap(arr + i, arr + piv++);
     }
     //move pivot to "middle"
@@ -108,7 +40,7 @@ void quicksort(char** arr, unsigned int length) {
 
     quicksort(arr, piv++);            //set length to current pvt and increase for next call
 
-    #pragma omp task default(none) shared(length) firstprivate(arr, piv)
+    //#pragma omp task default(none) shared(length) firstprivate(arr, piv)
     {
         quicksort(arr + piv, length - piv);
 
@@ -134,46 +66,14 @@ int findsize(char* array)
 }
 
 
-float* str_tofloat(char* a_str)
-{
-    float* result;
-    int count = 0;
-    int strsize   = 0;
-    int memx = 0, memy = 0;
-
-    char* tmp        = a_str;
-
-    while (*tmp)
-    {
-        if (*tmp == '\n')
-        {
-            count++;
-        }
-        strsize++;
-        tmp++;
-    }
-
-
-    if(!(result = malloc(sizeof(float) * count)))
-        exit(fprintf(stderr, "Erro ao alocar o vetor de flotas;\n"));
-
-
-
-
-
-}
-char** str_split(char* a_str)
+float * str_split(char* a_str)
 {   float* resultf;
-    char** result;
     int count     = 0;
     int strsize   = 0;
-    char* tmp        = a_str;
-    __attribute__((unused)) char* last_comma;
+    char* tmp     = a_str;
     char delim[2];
     delim[0] = '\n';
     delim[1] = 0;
-
-    /* Count how many elements will be extracted. */
 
     //#pragma omp parallel default(none) firstprivate(tmp, count, strsize)
     while (*tmp)
@@ -192,46 +92,40 @@ char** str_split(char* a_str)
     /* Add space for terminating null string so caller
        knows where the list of returned strings ends. */
     count++;
-
-    result = malloc(sizeof(char *) * count);
     resultf = malloc(sizeof(float*) * count);
 
 
-    if (result)
+    if (resultf)
     {
-        int tokensize = 0;
-        int dotpointer = 0;
-        int point = 0;
         int magmask = 1;
         int wholepart = 0;
-        float decimalpart = 0.0;
-        //char* newString;
+        float decimalpart = 0;
+        float converted_value = 0;
+
+
         char* tmpPointer = a_str;
         //char* token = strtok(a_str, '\n');
 
         //parallel for ordered private(newString, count) firstprivate(tokensize, tmpPointer) shared(a_str, result) default(none)
 //#pragma omp taskloop shared(a_str, result, count) private(newString) firstprivate(tokensize, tmpPointer) default(none)
         for(int i = 0; i < count; i++)
-        {   float converted_value = (float) 0.0;
+        {
 
             do
             {
                 tmpPointer++;
-                point++;
-                magmask = magmask * 10;
-
-                if(*tmpPointer == '.')
-                    dotpointer = point;
-
+                if(*tmpPointer == '.' || *tmpPointer == ' ') //Colocando a condicional aqui para ter o mesmo comportamento 'do -> while'
+                    break;             //Ou seja, a condição ser verificada após a operação do ponteiro
+                magmask = magmask * 10; //magmask só mudará de casa, caso a parte inteira não tenha terminado
             } while (*tmpPointer != '\n' && *tmpPointer != ' ');
 
-            resultf[i] *converted_value;
+
 
             while (*a_str != '.')
             {
 
                 fmag((int) *a_str, magmask, &wholepart);
-
+                magmask = magmask / 10;
                 if(*a_str == '\n' || *a_str == ' ')
                     break;
 
@@ -244,21 +138,44 @@ char** str_split(char* a_str)
             {
                 a_str++; //eliminate ' '
                 a_str++; //eliminate '\n'
-                continue;
+                /*encaminha a execução para um codigo que resetará as variáveis do forloop */
+                goto next;
             } else if (*a_str == '\n'){
                 a_str++; //eliminate '\n'
-                continue;
+                /*encaminha a execução para um codigo que resetará as variáveis do forloop */
+                goto next;
             }
 
+            a_str++;
+            magmask = 1;
 
-            while()
+            while(*a_str != ' ' && *a_str != '\n')
+            {
+                magmask = magmask * 10;
+                decimalpart +=  ((float)(*a_str + ASCSUB)) / (float)magmask;
+                a_str++;
 
+            }
+
+            converted_value = converted_value + decimalpart;
+            a_str++;
+            a_str++;
+
+            /*AQUI ESTÁ O GOTO*/
+            next:
+                resultf[i] = converted_value; //coloca o valor no array a ser ordenado
+                magmask = 1; //Reseta o magmask
+                wholepart = 0; //reseta o wholepart
+                decimalpart = 0; //reseta o decimalpart
+                while (*a_str == ' ') //Corrige para bungs em que o número iniciase com espaço
+                    a_str++;
+                tmpPointer = a_str; //Realinha os ponteiros em relação a referencia
 
         }
 
     }
 
-    return result;
+    return resultf;
 }
 
 char* readfile(const char* filename){
@@ -279,7 +196,8 @@ char* readfile(const char* filename){
     string_of_numbers = malloc(size + 1);
 
 
-    fread(string_of_numbers, size, 1, entrada);
+    if(fread(string_of_numbers, size, 1, entrada) != 1)
+        exit(fprintf(stderr, "Não foi possivel ler até o fim do arquivo\n"));
 
     fclose(entrada);
 
@@ -287,76 +205,32 @@ char* readfile(const char* filename){
 
 }
 
-int main(int argc, char** argv) {
+int main() {
 
-    if(*argv[1] == '0') {
-        char *string = "86.022 \n5.7183 \n27.033 \n34.308 \n37.638 \n6.0957 \n45.662 \n46.794 \n79.383 \n66.569 \n33.24 \n12.5 \n15.75 \n33.29 \n3.28 \n12.178 \n";
-        unsigned short j = 0;
-        unsigned int i = 0;
-        char **arr_string;
-
-        clock_t t_start = clock();
-
-
-        do {
-
-            int limit = findsize(string);
-
-            //printf("\ntamanho do array %d\ntamanho do ponteiro %d\n", sizeof(arr_string), sizeof(*arr_string));
-
-            quicksort(arr_string, limit);
-            j++;
-            if (j != 2048)
-                free(arr_string);
-        } while (j < 2048);
-
-
-        clock_t t_ends = clock() - t_start;
-        long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
-
-        do {
-            char *c = arr_string[i];
-            unsigned int j = 0;
-            do {
-                printf("%c", c[j]);
-                j++;
-            } while (c[j]);
-
-            i++;
-        } while (*arr_string[i]);
-
-
-        printf("\nThe program took %Lf seconds to execute", time_taken);
-
-    }else if(*argv[1] == '1'){
         char* string = readfile("dados_100000.txt");
         unsigned int i = 0;
-        char **arr_string;
+        float* arr_string;
 
-        clock_t t_start = clock();
+
 
         arr_string = str_split(string);
 
         int limit = findsize(string);
 
-
+        clock_t t_start = clock();
         quicksort(arr_string, limit);
 
 
         clock_t t_ends = clock() - t_start;
         long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
 
-        do {
-            char *c = arr_string[i];
+       /* do {
+            float c = arr_string[i];
             unsigned int j = 0;
-            do {
-                printf("%c", c[j]);
-                j++;
-            } while (c[j]);
+            printf("%f;  ", c);
 
             i++;
-        } while (*arr_string[i]);
+        } while (arr_string[i]);*/
 
         printf("\nThe program took %Lf seconds to execute", time_taken);
-    }
 }
