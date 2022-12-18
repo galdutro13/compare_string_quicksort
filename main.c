@@ -16,6 +16,7 @@ void inline __attribute__((always_inline)) fmag(int value, int mag, int* mem)
 
 }
 
+#pragma omp declare simd
 void inline __attribute__((always_inline)) swap(float* a, float* b) {
     float temp = *a;
     *a = *b;
@@ -26,7 +27,7 @@ void quicksort_serial(float* arr, unsigned int length) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
-
+#pragma omp simd
     for (i = 0; i < length; i++) {
 
         if ( arr[i] < arr[length -1])    //use string in last index as pivot
@@ -49,7 +50,7 @@ void quicksort_parallel(float* arr, unsigned int length, unsigned int depth) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
-
+#pragma omp simd
     for (i = 0; i < length; i++) {
 
         if ( arr[i] < arr[length -1])    //use string in last index as pivot
@@ -63,7 +64,7 @@ void quicksort_parallel(float* arr, unsigned int length, unsigned int depth) {
     if(depth < THRESHHOLD) {
         quicksort_parallel(arr, piv++, depth++);            //set length to current pvt and increase for next call
 
-        #pragma omp task default(none) shared(length) firstprivate(arr, piv, depth)
+        #pragma omp task mergeable default(none) shared(length) firstprivate(arr, piv, depth)
         quicksort_parallel(arr + piv, length - piv, depth);
     } else{
         quicksort_serial(arr, piv++);
@@ -250,13 +251,18 @@ int main() {
         clock_t t_ends = clock() - t_start;
         long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
 
-//       do {
-//            float c = arr_string[i];
-//            unsigned int j = 0;
-//            printf("%f;  ", c);
-//
-//            i++;
-//        } while (arr_string[i]);
+#pragma omp parallel default(shared) num_threads(8)
+#pragma omp single
+       do {
+#pragma omp task default(shared)
+           {
+               float c = arr_string[i];
+               unsigned int j = 0;
+               printf("%f;  ", c);
+           }
+
+            i++;
+        } while (arr_string[i]);
 
         printf("\nThe program took %Lf seconds to execute", time_taken);
 }
