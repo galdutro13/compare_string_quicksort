@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 #define ASCSUB -48
-
+#define THRESHHOLD 16
 
 void inline __attribute__((always_inline)) fmag(int value, int mag, int* mem)
 {
@@ -22,12 +22,11 @@ void inline __attribute__((always_inline)) swap(float* a, float* b) {
     *b = temp;
 }
 
-void quicksort(float* arr, unsigned int length) {
+void quicksort_serial(float* arr, unsigned int length) {
     unsigned int i, piv = 0;
     if (length <= 1)
         return;
 
-//#pragma omp taskloop shared(piv) firstprivate(arr, length) default(none) num_tasks(8)
     for (i = 0; i < length; i++) {
 
         if ( arr[i] < arr[length -1])    //use string in last index as pivot
@@ -38,13 +37,41 @@ void quicksort(float* arr, unsigned int length) {
 
     //recursively sort upper and lower
 
-    quicksort(arr, piv++);            //set length to current pvt and increase for next call
+    quicksort_serial(arr, piv++);            //set length to current pvt and increase for next call
 
     //#pragma omp task default(none) shared(length) firstprivate(arr, piv)
     {
-        quicksort(arr + piv, length - piv);
+        quicksort_serial(arr + piv, length - piv);
 
     }
+}
+void quicksort_parallel(float* arr, unsigned int length, unsigned int depth) {
+    unsigned int i, piv = 0;
+    if (length <= 1)
+        return;
+
+    for (i = 0; i < length; i++) {
+
+        if ( arr[i] < arr[length -1])    //use string in last index as pivot
+            swap(arr + i, arr + piv++);
+    }
+    //move pivot to "middle"
+    swap(arr + piv, arr + length - 1);
+
+    //recursively sort upper and lower
+
+    if(depth < THRESHHOLD) {
+        quicksort_parallel(arr, piv++, depth++);            //set length to current pvt and increase for next call
+
+        #pragma omp task default(none) shared(length) firstprivate(arr, piv, depth)
+        quicksort_parallel(arr + piv, length - piv, depth);
+    } else{
+        quicksort_serial(arr, piv++);
+
+        quicksort_serial(arr + piv, length - piv);
+    }
+
+
 }
 
 int findsize(char* array)
@@ -78,7 +105,7 @@ float * str_split(char* a_str)
     //#pragma omp parallel default(none) firstprivate(tmp, count, strsize)
     while (*tmp)
     {
-        if (*tmp == '\n')
+        if (*tmp == '\n' && *(tmp+1) != '\000')
         {
             count++;
         }
@@ -104,10 +131,7 @@ float * str_split(char* a_str)
 
 
         char* tmpPointer = a_str;
-        //char* token = strtok(a_str, '\n');
 
-        //parallel for ordered private(newString, count) firstprivate(tokensize, tmpPointer) shared(a_str, result) default(none)
-//#pragma omp taskloop shared(a_str, result, count) private(newString) firstprivate(tokensize, tmpPointer) default(none)
         for(int i = 0; i < count; i++)
         {
 
@@ -170,7 +194,6 @@ float * str_split(char* a_str)
                 while (*a_str == ' ') //Corrige para bungs em que o número iniciase com espaço
                     a_str++;
                 tmpPointer = a_str; //Realinha os ponteiros em relação a referencia
-
         }
 
     }
@@ -207,7 +230,7 @@ char* readfile(const char* filename){
 
 int main() {
 
-        char* string = readfile("dados_100000.txt");
+        char* string = readfile("dados_10000000.txt");
         unsigned int i = 0;
         float* arr_string;
 
@@ -218,19 +241,22 @@ int main() {
         int limit = findsize(string);
 
         clock_t t_start = clock();
-        quicksort(arr_string, limit);
+
+#pragma omp parallel default(shared) firstprivate(arr_string) num_threads(8)
+#pragma omp single
+        quicksort_parallel(arr_string, limit,0);
 
 
         clock_t t_ends = clock() - t_start;
         long double time_taken = ((long double) t_ends) / CLOCKS_PER_SEC;
 
-       /* do {
-            float c = arr_string[i];
-            unsigned int j = 0;
-            printf("%f;  ", c);
-
-            i++;
-        } while (arr_string[i]);*/
+//       do {
+//            float c = arr_string[i];
+//            unsigned int j = 0;
+//            printf("%f;  ", c);
+//
+//            i++;
+//        } while (arr_string[i]);
 
         printf("\nThe program took %Lf seconds to execute", time_taken);
 }
